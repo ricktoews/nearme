@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NearMe — Photo Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root{
+      --bg: #0b0b0c;
+      --fg: #fafafa;
+      --muted: #9aa0a6;
+      --primary: #3b82f6;
+      --ring: color-mix(in srgb, var(--primary) 45%, transparent);
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#ffffff; --fg:#111827; --muted:#6b7280; }
+    }
+
+    /* Mobile-first layout */
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .wrap{
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      display:grid; gap:16px; max-width:720px; margin-inline:auto;
+    }
+
+    header{ display:flex; align-items:center; gap:.75rem; }
+    .logo{ width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg, var(--primary), #7aa7ff); box-shadow:0 6px 20px rgba(59,130,246,.35); }
+    h1{ font-size:1.35rem; margin:0; letter-spacing:.2px; }
+    p.lead{ margin:.25rem 0 0; color:var(--muted); font-size:.95rem; }
+
+    form{ display:grid; gap:16px; }
+    .card{ border:1px solid color-mix(in srgb, var(--fg) 12%, transparent); border-radius:16px; padding:14px; background: color-mix(in srgb, var(--bg) 92%, #000 8%); }
+
+    label{ font-weight:600; font-size:.98rem; }
+    .hint{ color:var(--muted); font-size:.9rem; }
+
+    textarea, input[type="text"], input[type="file"]{
+      width:100%; font:inherit; color:inherit; background:transparent;
+      border:1px solid color-mix(in srgb, var(--fg) 18%, transparent);
+      border-radius:12px; padding:12px 14px; outline:none;
+    }
+    textarea{ min-height:120px; resize:vertical; }
+    textarea:focus, input:focus{ border-color: var(--primary); box-shadow: 0 0 0 6px var(--ring); }
+
+    /* File input wrapper for bigger tap target */
+    .file-row{ display:grid; gap:10px; }
+    .file-drop{
+      display:grid; place-items:center; text-align:center; gap:8px; padding:18px; border-radius:14px;
+      border:1px dashed color-mix(in srgb, var(--fg) 22%, transparent);
+    }
+    .file-drop strong{ font-weight:600; }
+    .file-meta{ font-size:.9rem; color:var(--muted); }
+    .preview{ display:none; width:100%; height:auto; border-radius:12px; margin-top:10px; }
+
+    .row{ display:grid; gap:8px; }
+
+    .actions{ position:sticky; bottom:0; padding-top:4px; background: linear-gradient(to top, color-mix(in srgb, var(--bg) 92%, transparent) 60%, transparent 100%); }
+    button{
+      width:100%; appearance:none; border:0; border-radius:14px; padding:14px 16px; font-weight:700; font-size:1rem; cursor:pointer;
+      background: var(--primary); color:white; box-shadow:0 12px 24px rgba(59,130,246,.35);
+    }
+    button:disabled{ opacity:.7; box-shadow:none; cursor:not-allowed; }
+
+    details{ border:1px solid color-mix(in srgb, var(--fg) 14%, transparent); border-radius:12px; padding:10px 12px; background: color-mix(in srgb, var(--bg) 96%, #000 4%); }
+    summary{ cursor:pointer; font-weight:600; }
+    code.block{ display:block; white-space:pre-wrap; background: color-mix(in srgb, var(--bg) 94%, #000 6%); border:1px solid color-mix(in srgb, var(--fg) 12%, transparent); padding:10px; border-radius:10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.9rem; }
+
+    footer{ color:var(--muted); font-size:.85rem; text-align:center; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>NearMe</h1>
+        <p class="lead">Snap a photo and tell us what you want nearby — coffee, art, restrooms, and more.</p>
+      </div>
+    </header>
+
+    <form action="https://wordmage.toews-api.com/test-image-analysis" method="POST" enctype="multipart/form-data" novalidate>
+      <!-- What the user is looking for (plain text encouraged) -->
+      <div class="card row">
+        <label for="prefs">What are you looking for?</label>
+        <textarea id="prefs" name="preferences" placeholder="e.g., Quiet coffee shops within a 10–15 minute walk. Clean public restrooms. Any small art museums open today."></textarea>
+        <details>
+          <summary>Prefer structured input? (Optional JSON)</summary>
+          <div class="hint">If you like, you can paste JSON here instead of plain text. Your server can parse either.</div>
+          <code class="block">{
+  "cafes": ["quiet", "bookish"],
+  "museums": ["art", "history"],
+  "architecture": ["gothic", "art nouveau"],
+  "restrooms": ["clean", "safe"]
+}</code>
+        </details>
+      </div>
+
+      <!-- Photo input (camera or library) -->
+      <div class="card file-row">
+        <label for="photo">Photo</label>
+        <div class="file-drop">
+          <strong>Tap to choose or take a photo</strong>
+          <input id="photo" name="photo" type="file" accept="image/*" capture="environment" required />
+          <div class="file-meta" id="fileMeta">Supported: JPG / PNG / HEIC (iOS will convert if needed)</div>
+          <img id="preview" class="preview" alt="Selected photo preview" />
+        </div>
+        <div class="hint">Tip: If you're outside, switch to the back camera for better clarity.</div>
+      </div>
+
+      <!-- Removed: Quick Tags field (per your request) -->
+
+      <div class="actions"><button id="submitBtn" type="submit" disabled>Upload</button></div>
+    </form>
+
+    <footer>© <span id="yr"></span> NearMe</footer>
+  </div>
+
+  <script>
+    const input = document.getElementById('photo');
+    const preview = document.getElementById('preview');
+    const meta = document.getElementById('fileMeta');
+    const submitBtn = document.getElementById('submitBtn');
+    const yr = document.getElementById('yr');
+    yr.textContent = new Date().getFullYear();
+
+    function humanSize(bytes){
+      if(!bytes && bytes !== 0) return '';
+      const units=['B','KB','MB','GB'];
+      let i=0; let v=bytes;
+      while(v>=1024 && i<units.length-1){ v/=1024; i++; }
+      return v.toFixed(v<10 && i>0 ? 1 : 0) + ' ' + units[i];
+    }
+
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file){
+        preview.style.display = 'none';
+        meta.textContent = 'No file selected';
+        submitBtn.disabled = true;
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.style.display = 'block';
+      meta.textContent = `${file.name} • ${humanSize(file.size)}`;
+      submitBtn.disabled = false;
+    });
+
+    // Optional: guard against accidental double-submits
+    document.querySelector('form').addEventListener('submit', (e)=>{
+      if(submitBtn.disabled) return;
+      submitBtn.disabled = true; submitBtn.textContent = 'Uploading…';
+    });
+  </script>
+</body>
+</html>
+
